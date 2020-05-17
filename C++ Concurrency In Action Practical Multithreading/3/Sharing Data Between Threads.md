@@ -279,3 +279,38 @@ public:
 
 
 ## 3.3 Alternative facilities for protecting shared data
+- One case that comes up often where the shared data needs protection only from concurrent access while it’s being initialized, but after that no explicit synchronization is required. Data is read only after it is created.
+### 3.3.1 Protecting shared data during initialization
+- you can have a shared resource that is expensive to construct, such that you would want to **Lazy initialize** it. Common in single threaded applications- each application that needs the resource will check if the resource has been created.
+``` C++
+std::shared_ptr<some_resource> resource_ptr;
+std::mutex resource_mutex;
+void foo()
+{
+    std::unique_lock<std::mutex> lk(resource_mutex);
+    if(!resource_ptr)
+    {
+        resource_ptr.reset(new some_resource);
+    }
+    lk.unlock();
+    resource_ptr->do_something();
+}
+```
+- This may seem like a good way to create the shared resource, however, everythread has to wait for its turn in order to check if it has been allocated.
+- So what to do instead?
+```C++
+
+void undefined_behaviour_with_double_checked_locking()
+{
+    if(!resource_ptr)
+    {
+        std::lock_guard<std::mutex> lk(resource_mutex);
+        if(!resource_ptr)
+        {
+            resource_ptr.reset(new some_resource);
+        }
+    }
+    resource_ptr->do_something();
+}
+```
+- some other stuff, but it does not seem as important, so we will leave chapter 3 at that
