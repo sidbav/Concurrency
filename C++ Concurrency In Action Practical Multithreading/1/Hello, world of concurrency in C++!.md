@@ -4,10 +4,13 @@
 - two or more seperate activites happening at the same time.
 
 ### 1.1.1 Concurrency in Computer Systems
-- single program perform multiple tasks in parralel
-- in the past most computers only had one processor, hence making parrellel programs difficult to come by. Even concurrent programs would perform just like seqeutial programs in terms of speed.
-- However it can switch between tasks multiple times a second.
-- Only multi core processors or multi-processor machines are capable of running a true parrallel program. This is referred to as hardware concurrency.
+- Single program perform multiple tasks in parralel
+- In the past most computers only had one processor, hence making parrellel \
+programs difficult to come by. Even concurrent programs would perform just like\
+ seqeutial programs in terms of speed.
+- However, it can switch between tasks multiple times a second.
+- Only multi core processors or multi-processor machines are capable of running\
+ a true parrallel program. This is referred to as hardware concurrency.
 
 ### 1.1.2 Approches to Concurrency
 - Multiple single threaded processes OR multiple threads in a single prcoess.
@@ -16,15 +19,18 @@
 - There would have to interprocess communication
   - singles, sockets, piples
   - this communication is very slow, and complex
-- OS needs to provide a lot of protection against the processes from overwriting each other's data.
+- OS needs to provide a lot of protection against the processes from \
+overwriting each other's data.
 - running a process requires a lot of overhead.
 - easier to write safe concurrent code for processes, compared to threads.
 
 #### Concurrency with Multiple Threads
 - Threads are lightweight compared to processes.
-- all threads share the same address space. much easier to communicate between threads and share data between threads.
-- the programmer must be careful to write code such that all threads access accurate data. Need to be careful to consider how the threads will communicate with each other.
-- favoured way to write concurrent code.
+- All threads share the same address space. much easier to communicate between \
+threads and share data between threads.
+- the programmer must be careful to write code such that all threads access \
+accurate data. Need to consider how the threads will communicate with each other.
+- Favoured way to write concurrent code.
 
 ## 1.2 Why Use Concurrency?
 - Two main reasons to use concurrency:
