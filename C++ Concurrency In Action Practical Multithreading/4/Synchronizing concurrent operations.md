@@ -208,4 +208,292 @@ int main() {
 ```
 
 ### 4.2.2 Associating a task with a future.
+- `std::packaged_task<>` associates a future with a function or callable object.
+When invoked, it calls the object/function and makes the future read. This can
+be used in thread pools
+- the template parameter for the `std::packaged_task` is a function signature.
+Can have `void()` or can have something like `int(std::string &, double)`. Types
+do not have to be an exact match.
+- The return type for these functions specifies the type of the `std::future<>`
+and the return value is obtained from the function call `get_future()`. The
+argument list is used to specify the signature list of the packaged task's
+function all operator.
+- A `std::packagedtask<>` is a callable object, which can be wrapped in a
+`std::function` object, so it can be passed to a `std::thread` object. When
+invoked as a function object, the result is stored in a `std::future` object,
+obtained from the `get_future()`
+- Here is an example of this being used in a GUI application. GUIs typically
+have different threads working on updating the it, so the GUI application must
+inform these threads to do so. A `std::packaged_task` can be used to do so,
+without sending a custom message to each thread.
+```C++
+#include <deque>
+#include <mutex>
+#include <future>
+#include <thread>
+#include <utility>
 
+std::mutex m;
+std::deque<std::packaged_task<void()> > tasks;
+bool gui_shutdown_message_received();
+void get_and_process_gui_message();
+
+void gui_thread()
+{
+  while(!gui_shutdown_message_received())
+  {
+    get_and_process_gui_message();
+    std::packaged_task<void()> task;
+    {
+      std::lock_guard<std::mutex> lk(m);
+      if(tasks.empty())
+        continue;
+      task=std::move(tasks.front());
+      tasks.pop_front();
+    }
+    task();
+  }
+}
+
+std::thread gui_bg_thread(gui_thread);
+template<typename Func>
+std::future<void> post_task_for_gui_thread(Func f)
+{
+  std::packaged_task<void()> task(f);
+  std::future<void> res=task.get_future();
+  std::lock_guard<std::mutex> lk(m);
+  tasks.push_back(std::move(task));
+  return res;
+}
+```
+- The function `gui_thread` continues to loop until it recives a message from
+the GUI. If there is something in the queue, it removes that task from the
+queue, and then it releases it lock, and then it runs the specfic task. The
+future will be relases when the task is done.
+
+### Making Promises:
+- A `std::promise<T>` can be used to set a value of type T, which can be read by
+A pair of `std::thread` and `std::promise` can be used in the following case:
+  - waiting thread could block the future, while the thread that is providing
+  the data could use the promise to set the value, and make the future ready.
+- When the value of a promise is set with a call to `set_value()`, the future
+becomes ready, can be used to retrive the stored value. If the promise is
+destoryed before setting a value, then an exception is stored instead.
+- Here is an example of how a promise/future pair can be used to top identify
+the sucessful trasmission of a block of outgoing data. The value associated with
+the future is a sucess/fail fla, and for incoming packets, the future is the
+paylod of the data packet.
+```C++
+#include <future>
+void process_connections(connection_set& connections)
+{
+  while(!done(connections))
+  {
+    for(connection_iterator
+          connection=connections.begin(),end=connections.end();
+        connection!=end; ++connection)
+    {
+      if(connection->has_incoming_data())
+      {
+        data_packet data=connection->incoming();
+        std::promise<payload_type>& p =
+          connection->get_promise(data.id);
+        p.set_value(data.payload);
+      }
+      if(connection->has_outgoing_data())
+      {
+        outgoing_packet data =
+          connection->top_of_outgoing_queue();
+        connection->send(data.payload);
+        data.promise.set_value(true);
+      }
+    }
+  }
+}
+```
+### 4.2.4 Saving an exception for the future.
+- Imagine the following code:
+```C++
+double square_root(double x)
+{
+  if(x<0)
+    throw std::out_of_range(“x<0”);
+  return sqrt(x);
+}
+```
+If you were the call this function asynchronuosly, this would not work
+- In order to work with exceptions, you would call set_exception rather than
+set_value. Here is how the code would work:
+```C++
+extern std::promise<double> some_promise;
+try {
+  some_promise.set_value(calculate_value());
+}
+catch(...) {
+  some_promise.set_exception(std::current_exception());
+}
+```
+- Another way to set the exceptions is to destory the `std::packaged_value` or
+the `std::promise`.
+### 4.2.5 Waiting for Multiple Threads
+- You can use `std::shared_future`, since it is can be shared with many threads.
+- `std::future` is movable, but `std::shared_future` is copyable.
+
+## 4.3 Waiting with a time limit
+- Sometimes you want to specify how long a thread should wait for something to
+happen.
+- `std::condition_variable` has two overloads of the `wait_for()` member
+function and two overloads of the `wait_until()` member function that correspond
+to the two overloads of `wait()` — one overload that just waits until signaled,
+or the timeout expires, or a spurious wakeup occurs, and another that will check
+the supplied predicate when woken and will return only when the supplied
+predicate is true (and the condition variable has been signaled) or the timeout
+expires.
+
+```C++
+#include <condition_variable>
+#include <mutex>
+#include <chrono>
+
+std::condition_variable cv;
+bool done;
+std::mutex m;
+bool wait_loop()
+{
+  auto const timeout = std::chrono::steady_clock::now()+
+                      std::chrono::milliseconds(500);
+  std::unique_lock<std::mutex> lk(m);
+  while(!done)
+    if(cv.wait_until(lk,timeout)==std::cv_status::timeout)
+      break;
+  return done;
+}
+```
+- Plain `std::mutex` and `std::recursive_mutex` do not support time outs, but,
+`std::timed_mutex` and `std::recurisve_timed_mutex` do. They support
+`try_lock_for()` and `try_lock_until()` to obtain a lock in a specified time, or
+before a ceratin time.
+- This is a table of the different objects that accept timeouts.
+![](2020-07-11-13-24-21.png)
+
+## 4.4 Using synchronization of operations to simplify code
+- synchronization allows for a functional programming style.
+- Each task can be provided with the data that it neededs, and the results can
+be passed along the threads, with the use of futures.
+
+### 4.4.1 Functional Programming with Futures
+- Functional Programming: when the results of a function call on depends on the
+arguments passed to the function, not the state of the external state of the
+code. Similar to functions in math.
+- A pure function does not modify the external state, the effect of the function
+is limited to the return value of the function.
+- Functional programming makes Concurrency easier to deal with. The shared data
+will not be modified, no race conditions, and no need for mutexes.
+- C++11 makes it easier to write functional programs.
+- Futures can be passed around threads, but their is no direct access to the
+shared data
+
+#### FP Stlye QuickSort
+- QuickSort: Take a pivot element, divide the list into items less than the
+pivot and greater than the pivot; and then do the same on each of these lists,
+and then combine all of these lists.
+Sequential implmentation of QuickSort:
+```C++
+template<typename T>
+std::list<T> sequential_quick_sort(std::list<T> input)
+{
+  if(input.empty())
+    return input;
+  std::list<T> result;
+  result.splice(result.begin(),input,input.begin());
+  T const& pivot=*result.begin();
+
+  auto divide_point = std::partition(input.begin(),input.end(),
+      [&](T const& t){return t<pivot;});
+
+  std::list<T> lower_part;
+  lower_part.splice(lower_part.end(),input,input.begin(), divide_point);
+
+  auto new_lower(
+    sequential_quick_sort(std::move(lower_part)));
+  auto new_higher(
+    sequential_quick_sort(std::move(input)));
+
+  result.splice(result.end(),new_higher);
+  result.splice(result.begin(),new_lower);
+    return result;
+}
+```
+- This code is already functional, so it is easy to make it concurrent:
+```C++
+template<typename T>
+std::list<T> parallel_quick_sort(std::list<T> input)
+{
+  if(input.empty())
+    return input;
+  std::list<T> result;
+  result.splice(result.begin(),input,input.begin());
+  T const& pivot=*result.begin();
+  auto divide_point=std::partition(input.begin(),input.end(),
+        [&](T const& t){return t<pivot;});
+  std::list<T> lower_part;
+  lower_part.splice(lower_part.end(),input,input.begin(), divide_point);
+  std::future<std::list<T> > new_lower(
+    std::async(&parallel_quick_sort<T>,std::move(lower_part)));
+  auto new_higher(parallel_quick_sort(std::move(input)));
+  result.splice(result.end(),new_higher);
+  result.splice(result.begin(),new_lower.get());
+  return result;
+}
+```
+- The major difference here is we are using a future, which is to sort the lower
+half of the list, and it is done on another thread.
+
+#### 4.4.2 Synchronizing operations with message passing
+- CSP: Communicatiing Sequential Processes, threads are considered to be
+separate, their is no shared data, but the threads there are communication
+structures for the threads to send messages between each other.
+- Each thread is like a state machine, when it recieves a message, it updates
+it updates its state in some manner, and it will send one or more messages to
+the other threads.
+- Here is an example of a state machine for an atm. There would be three
+threads: one for a hardware, one to handle the ATM logic, and the other to
+communicate with the bank.
+![](2020-07-11-15-06-42.png)
+```C++
+struct card_inserted
+{
+  std::string account;
+};
+class atm {
+  messaging::receiver incoming;
+  messaging::sender bank;
+  messaging::sender interface_hardware;
+  void (atm::*state)();
+
+  std::string account;
+  std::string pin;
+void waiting_for_card() {
+  interface_hardware.send(display_enter_card());
+  incoming.wait()
+    .handle<card_inserted>(
+      [&](card_inserted const& msg) {
+        account=msg.account;
+        pin="";
+        interface_hardware.send(display_enter_pin());
+        state=&atm::getting_pin;
+      }
+    );
+}
+
+void getting_pin();
+public:
+  void run() {
+    state = &atm::waiting_for_card;
+    try {
+      for(;;)
+        (this->(*state))();
+    } catch(messageing::close_queue const &) {}
+  }
+};
+```
