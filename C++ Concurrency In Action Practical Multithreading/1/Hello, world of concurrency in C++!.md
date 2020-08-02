@@ -17,7 +17,7 @@
 
 #### Concurrency with Multiple Processes
 - There would have to interprocess communication
-  - singles, sockets, piples
+  - singles, sockets, pipes
   - this communication is very slow, and complex
 - OS needs to provide a lot of protection against the processes from
  overwriting each other's data.
@@ -35,7 +35,7 @@
 
 ## 1.2 Why Use Concurrency?
 - Two main reasons to use concurrency:
-1. Seperation of concerns
+1. Separation of concerns
 2. Performance.
 
 ### 1.2.1 Using Concurrency for Seperation of Concerns
@@ -45,17 +45,25 @@
   - Take in the users commands.
   - Respond to those users commands, and be ready to take in more commands
  from the user at the same time.
-- You want to be able to run the UI while still handling the users input \
+- You want to be able to run the UI while still handling the users input
 (download a file)
-- Using threads by this logic makes the logic in each thread simplier, since it can just focus on its specfic task without having to worry about a lot of communication with the other threads.
-- The number of threads is independent the number of CPUs since the division in threads is based on a conceptual idea rather than increasing performance.
+- Using threads by this logic makes the logic in each thread simplier, since it
+can just focus on its specfic task without having to worry about a lot of
+communication with the other threads.
+- The number of threads is independent the number of CPUs since the division in
+threads is based on a conceptual idea rather than increasing performance.
 
 ### 1.2.2 Using Concurrency for Performance.
-- **Task parrallism** - take a program, break it up into subtasks, and run them in parrallel
-- Sounds simple, but extremley complex. Lots of dependencies between the different subtasks.
-- Can divide the processing, one thread handles one part of the algo, while a different thread handles another.
-- Can divide by data. Each thread perfroms the same operation on different pieces of data. This is referred to as **Data Parralleism**
-- Data Parrallism is the easiest type of concurrent program to write. You write the code for one thread, then just have it handle multiple.
+- **Task parrallism** - take a program, break it up into subtasks, and run them
+in parrallel
+- Sounds simple, but extremley complex. Lots of dependencies between the
+different subtasks.
+- Can divide the processing, one thread handles one part of the algo, while a
+different thread handles another.
+- Can divide by data. Each thread performs the same operation on different
+pieces of data. This is referred to as **Data Parralleism**
+- Data Parrallism is the easiest type of concurrent program to write. You write
+the code for one thread, then just have it handle multiple.
 
 ### 1.2.3 When not to use Concurrency
 - Concurrent code is harder to maintain, so it is only worth if maintaining it is worth it

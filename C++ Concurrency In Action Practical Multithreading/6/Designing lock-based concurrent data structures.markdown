@@ -107,3 +107,6 @@ outlined before
 - Each member function is protected by locking the mutex before performing each
 operation, ensures only one thread can access the data at a time, no thread will
 see a broken invariant.
+- Potenital race condition between calls to empty, and pop, but there is a mutex
+that protects the data so the condition will not cause any issues.
+- 
